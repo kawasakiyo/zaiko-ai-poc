@@ -5,3 +5,4 @@ backend/vendor/
 dist/
 # チャットエクスポート（個人メール・ローカルパス等を含むためコミットしない）
 chat-history/
+.DS_Store
