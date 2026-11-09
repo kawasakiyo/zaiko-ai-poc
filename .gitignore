@@ -1,0 +1,7 @@
+.env
+db/backup/*.bak
+**/node_modules/
+backend/vendor/
+dist/
+# チャットエクスポート（個人メール・ローカルパス等を含むためコミットしない）
+chat-history/

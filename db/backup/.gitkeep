@@ -1,0 +1,3 @@
+# このディレクトリに AdventureWorks2022.bak を配置してください。
+# 入手元: https://learn.microsoft.com/sql/samples/adventureworks-install-configure
+# （.bak 本体は .gitignore 対象のためコミットされません）

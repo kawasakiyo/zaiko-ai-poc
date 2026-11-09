@@ -1,0 +1,80 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+      - ./db/backup:/var/opt/mssql/backup:ro
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    platform: linux/amd64
+    depends_on:
+      - db
+    environment:
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+      ANALYSIS_DB_PASSWORD: "${ANALYSIS_DB_PASSWORD}"
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD}"
+      APP_DB_NAME: "${APP_DB_NAME:-AppDb}"
+      APP_DB_USER: "${APP_DB_USER:-app_user}"
+    volumes:
+      - ./db/init:/init:ro
+      - ./db/backup:/var/opt/mssql/backup:ro
+    entrypoint: ["/bin/bash", "/init/restore.sh"]
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    depends_on:
+      - db
+      - redis
+    environment:
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+      # 分析用接続（analysis_reader / AdventureWorks 読取のみ）
+      DB_HOST: db
+      DB_PORT: "1433"
+      DB_NAME: AdventureWorks
+      DB_USER: analysis_reader
+      DB_PASSWORD: "${ANALYSIS_DB_PASSWORD}"
+      # アプリ用接続（app_user / AppDb 読み書き）
+      APP_DB_HOST: db
+      APP_DB_PORT: "1433"
+      APP_DB_NAME: "${APP_DB_NAME:-AppDb}"
+      APP_DB_USER: "${APP_DB_USER:-app_user}"
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD}"
+      # 認証
+      APP_ADMIN_USER: "${APP_ADMIN_USER:-admin}"
+      APP_ADMIN_PASSWORD: "${APP_ADMIN_PASSWORD}"
+      SESSION_TTL_SEC: "${SESSION_TTL_SEC:-28800}"
+      # Redis / レートリミット
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX:-20}"
+      RATE_LIMIT_WINDOW_SEC: "${RATE_LIMIT_WINDOW_SEC:-3600}"
+      # モデル / 実行
+      DEFAULT_MODEL: "${DEFAULT_MODEL:-claude-sonnet-5}"
+      MAX_ROWS: "${MAX_ROWS:-500}"
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+volumes:
+  mssql-data:
